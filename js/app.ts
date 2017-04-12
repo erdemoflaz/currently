@@ -1,5 +1,20 @@
+interface Options {
+    location: string;
+    address: string;
+}
+
+interface Dates {
+    start: Date;
+    end: Date;
+}
+
+interface Message {
+    dates: Dates;
+}
+
+
 function OSType() {
-    var OSName = "Unknown OS";
+    let OSName = "Unknown OS";
     if (navigator.appVersion.indexOf("Win") !== -1) {
         OSName = "Windows";
     }
@@ -14,50 +29,54 @@ function OSType() {
     }
     return OSName;
 }
+
 function inBeta() {
     if (chrome.runtime.getManifest().name.indexOf("Beta") !== -1) {
         return true;
     }
     return false;
 }
-var Loader = {
+
+
+const Loader = {
     loader: $('#loader'),
-    show: function () {
+    show() {
         this.loader.siblings('div').hide();
         this.loader.show();
     },
-    hide: function () {
+    hide() {
         this.loader.hide();
     }
 };
-var ErrorHandler = {
+
+const ErrorHandler = {
     $el: {
         city: $("#city"),
         error: $("#error"),
-        weather: $("#weather-inner")
+        weather: $("#weather-inner"),
     },
-    show: function (message) {
+    show(message) {
         Loader.hide();
         ErrorHandler.$el.error.html(message);
         ErrorHandler.$el.error.show();
         ErrorHandler.$el.weather.hide();
         ErrorHandler.$el.city.hide();
     },
-    hide: function () {
+    hide() {
         ErrorHandler.$el.error.hide();
         ErrorHandler.$el.weather.show();
     },
-    offline: function () {
+    offline () {
         ErrorHandler.show($("#offlineError").html());
     },
-    noAppLocation: function () {
+    noAppLocation () {
         ErrorHandler.show($("#locationError").html());
         $("#set-location").submit(function () {
-            var address = $('#error form input').val();
+            const address = $('#error form input').val();
             if (!_.isEmpty(address)) {
                 // Geocode address
                 AppLocation.gecodeAddress(address).then(function (data) {
-                    var options;
+                    let options:Options;
                     options.location = data.location;
                     options.address = data.address;
                     AppStorage.clearWeather().then(function () {
@@ -74,24 +93,24 @@ var ErrorHandler = {
         });
     }
 };
-var Notifications = {
+const Notifications = {
     urls: {
         beta: "https://s3.amazonaws.com/currently-notifications/notifications.beta.json",
         gold: "https://s3.amazonaws.com/currently-notifications/notifications.json"
     },
-    current: function (location) {
+    current(location) {
         // Get notification json
         return Notifications.request()
             .then(Notifications.parse)
             .then(function (data) {
-            return Notifications.filter(data, location);
-        });
+                return Notifications.filter(data, location);
+            });
     },
-    isActive: function (message) {
+    isActive(message) {
         return message.active;
     },
-    isInTimeFrame: function (message) {
-        var now = new Date();
+    isInTimeFrame(message) {
+        const now = new Date();
         if (!message.dates) {
             return true;
         }
@@ -108,13 +127,15 @@ var Notifications = {
         }
         return true;
     },
-    isInAppLocation: function (message, location) {
+    isInAppLocation(message, location) {
         if (message.geo) {
             if (message.geo.type === "distance") {
-                var pass = geolib.isPointInCircle({
-                    latitude: location.lat,
-                    longitude: location.lng
-                }, message.geo.from, (message.geo.distance * 1609.344));
+                const pass = geolib.isPointInCircle(
+                    { 
+                        latitude: location.lat,
+                        longitude: location.lng
+                    },
+                    message.geo.from, (message.geo.distance * 1609.344));
                 return pass;
             }
         }
@@ -123,20 +144,20 @@ var Notifications = {
         }
         return false;
     },
-    isNew: function (message) {
+    isNew(message) {
         return AppStorage.seenNotifications().then(function (seen) {
             return !_.contains(seen, message.id);
         });
     },
-    filter: function (messages, location) {
-        var checks = [];
-        _.each(messages, function (message) {
-            var check = Q.all([
+    filter(messages:Message[], location) {
+        const checks = [];
+        _.each(messages, (message) => {
+            const check = Q.all([
                 Notifications.isActive(message),
                 Notifications.isNew(message),
                 Notifications.isInTimeFrame(message),
                 Notifications.isInAppLocation(message, location)
-            ]).spread(function (active, isnew, time, location) {
+            ]).spread((active, isnew, time, location) => {
                 if (active && isnew && time && location) {
                     return message;
                 }
@@ -144,21 +165,21 @@ var Notifications = {
             checks.push(check);
         });
         return Q.allResolved(checks)
-            .then(function (promises) {
-            var results = [];
-            _.each(promises, function (promise) {
-                if (promise.isFulfilled()) {
-                    var message = promise.valueOf();
-                    if (!_.isUndefined(message)) {
-                        results.push(message);
+            .then((promises) => {
+                const results = [];
+                _.each(promises, (promise) => {
+                    if (promise.isFulfilled()) {
+                        const message = promise.valueOf();
+                        if (!_.isUndefined(message)) {
+                            results.push(message);
+                        }
                     }
-                }
+                });
+                return results;
             });
-            return results;
-        });
     },
-    parse: function (messages) {
-        _.each(messages, function (message) {
+    parse(messages:Message[]) {
+        _.each(messages, (message) => {
             if (message.dates) {
                 message.dates.start = new Date(message.dates.start);
                 if (message.dates.end) {
@@ -168,13 +189,13 @@ var Notifications = {
         });
         return messages;
     },
-    getCached: function () {
+    getCached () {
         return AppStorage.getNotifications();
     },
-    cache: function (data) {
+    cache (data) {
         return AppStorage.cacheNotifications(data);
     },
-    url: function () {
+    url () {
         if (inBeta()) {
             return Notifications.urls.beta;
         }
@@ -182,7 +203,7 @@ var Notifications = {
             return Notifications.urls.gold;
         }
     },
-    request: function () {
+    request () {
         return Notifications.getCached().then(function (data) {
             return data;
         }, function () {
@@ -192,11 +213,13 @@ var Notifications = {
             })).then(Notifications.cache);
         });
     },
-    finish: function (id) {
+    finish (id) {
         return AppStorage.markNotification(id);
     }
 };
-var AppStorage = {
+
+
+const AppStorage = {
     cache: {},
     notifications: {
         key: "notifications",
@@ -222,7 +245,7 @@ var AppStorage = {
             color: "dark-bg"
         }
     },
-    bestAppStorageAppLocation: function (type) {
+    bestAppStorageAppLocation (type) {
         // Check if recommended location exists if not, save to local;
         if (AppStorage[type].location === "sync") {
             if (chrome.storage.sync) {
@@ -231,7 +254,7 @@ var AppStorage = {
         }
         return chrome.storage.local;
     },
-    load: function (type, use_cache) {
+    load(type, use_cache) {
         if (_.isUndefined(use_cache)) {
             use_cache = true;
         }
@@ -239,24 +262,24 @@ var AppStorage = {
             return AppStorage.cache[type];
         }
         else if (!use_cache || !AppStorage.cache[type]) {
-            var deferred_1 = Q.defer();
-            this.bestStorageAppLocation(type).get(Storage[type].key, function (value) {
+            const deferred = Q.defer();
+            this.bestStorageAppLocation(type).get(Storage[type].key, (value) => {
                 if (!_.isEmpty(value)) {
-                    deferred_1.resolve(value[AppStorage[type].key]);
+                    deferred.resolve(value[AppStorage[type].key]);
                 }
                 else {
-                    deferred_1.reject(new Error("Missing Data"));
+                    deferred.reject(new Error("Missing Data"));
                 }
             });
-            AppStorage.cache[type] = deferred_1.promise;
+            AppStorage.cache[type] = deferred.promise;
         }
         return AppStorage.cache[type];
     },
-    save: function (type, data) {
-        var deferred = Q.defer();
-        var key = AppStorage[type].key;
+    save (type, data) {
+        const deferred = Q.defer();
+        const key = AppStorage[type].key;
         function _save(current) {
-            var saveData = {};
+            const saveData = {};
             if (!_.isNull(current)) {
                 saveData[key] = _.extend(current, data);
             }
@@ -273,16 +296,16 @@ var AppStorage = {
         });
         return deferred.promise;
     },
-    remove: function (type) {
-        var deferred = Q.defer();
-        var key = AppStorage[type].key;
+    remove (type) {
+        const deferred = Q.defer();
+        const key = AppStorage[type].key;
         this.bestStorageAppLocation(type).remove(key, function (value) {
             AppStorage.cache[type] = null;
             deferred.resolve(value);
         });
         return deferred.promise;
     },
-    castOptions: function (key, value) {
+    castOptions (key, value) {
         // Case boolean if it is a boolean
         if (value === 'true') {
             return true;
@@ -300,16 +323,16 @@ var AppStorage = {
             return value;
         }
     },
-    getOption: function (key) {
+    getOption (key) {
         return this.load("options").then(function (data) {
             return AppStorage.castOptions(key, data[key]);
         }, function () {
             return AppStorage.options.defaults[key];
         });
     },
-    getOptions: function () {
+    getOptions () {
         return this.load("options").then(function (data) {
-            var options = _.clone(AppStorage.options.defaults);
+            const options = _.clone(AppStorage.options.defaults);
             _.each(data, function (value, key) {
                 options[key] = AppStorage.castOptions(key, value);
             });
@@ -318,42 +341,42 @@ var AppStorage = {
             return AppStorage.options.defaults;
         });
     },
-    setOption: function (key, value) {
+    setOption (key, value) {
         value = AppStorage.castOptions(key, value);
-        var obj = {};
+        const obj = {};
         obj[key] = value;
         return AppStorage.save("options", obj);
     },
-    setOptions: function (data) {
-        var options = _.clone(data);
+    setOptions (data) {
+        const options = _.clone(data);
         _.each(options, function (value, key) {
             options[key] = AppStorage.castOptions(key, value);
         });
         return AppStorage.save("options", options);
     },
-    getCachedWeather: function () {
+    getCachedWeather () {
         return this.load("weather")
             .then(function (data) {
-            var now = new Date();
-            if (now.getTime() < (parseInt(data.cachedAt) + 60000 * 60)) {
-                return data;
-            }
-            throw new Error("Invalid Cache");
-        });
+                const now = new Date();
+                if (now.getTime() < (parseInt(data.cachedAt) + 60000 * 60)) {
+                    return data;
+                }
+                throw new Error("Invalid Cache");
+            });
     },
-    cacheWeather: function (data) {
-        var date = new Date();
+    cacheWeather (data) {
+        const date = new Date();
         data.cachedAt = date.getTime();
         return AppStorage.save("weather", data).then(function () {
             return data;
         });
     },
-    clearWeather: function () {
+    clearWeather () {
         return AppStorage.remove("weather");
     },
-    cacheNotifications: function (data) {
-        var date = new Date();
-        var save = {
+    cacheNotifications (data) {
+        const date = new Date();
+        const save = {
             cachedAt: date.getTime(),
             data: data
         };
@@ -361,30 +384,30 @@ var AppStorage = {
             return data;
         });
     },
-    getNotifications: function () {
+    getNotifications () {
         return this.load("notifications")
             .then(function (data) {
-            var now = new Date();
-            // if (now.getTime() < (parseInt(data.cachedAt) + 15000)) { // Valid for 15 seconds
-            if (now.getTime() < (parseInt(data.cachedAt) + 60000 * 120)) {
-                return data.data;
-            }
-            throw new Error("Invalid Cache");
-        });
+                const now = new Date();
+                // if (now.getTime() < (parseInt(data.cachedAt) + 15000)) { // Valid for 15 seconds
+                if (now.getTime() < (parseInt(data.cachedAt) + 60000 * 120)) {
+                    return data.data;
+                }
+                throw new Error("Invalid Cache");
+            });
     },
-    markNotification: function (id) {
+    markNotification (id) {
         return AppStorage.load("notifications", false)
             .then(function (data) {
-            var seen = [];
-            if (data.seen) {
-                seen = data.seen;
-            }
-            seen.push(id);
-            data.seen = seen;
-            return AppStorage.save("notifications", data);
-        });
+                let seen = [];
+                if (data.seen) {
+                    seen = data.seen;
+                }
+                seen.push(id);
+                data.seen = seen;
+                return AppStorage.save("notifications", data);
+            });
     },
-    seenNotifications: function () {
+    seenNotifications () {
         return this.load("notifications").then(function (data) {
             return data.seen;
         }, function () {
@@ -392,40 +415,41 @@ var AppStorage = {
         });
     }
 };
-var AppLocation = {
-    getDisplayName: function (location) {
+
+const AppLocation = {
+    getDisplayName(location) {
         return Q.when($.ajax({
             data: { "latlng": location.lat + "," + location.lng, sensor: false },
             dataType: "json",
-            url: "https://maps.googleapis.com/maps/api/geocode/json"
+            url: "https://maps.googleapis.com/maps/api/geocode/json",
         }))
-            .then(function (data) {
-            if (data.status === "OK") {
-                var result = data.results[0].address_components;
-                var info = [];
-                for (var i = 0; i < result.length; ++i) {
-                    if (result[i].types[0] == "country") {
-                        info.push(result[i].long_name);
+            .then((data) => {
+                if (data.status === "OK") {
+                    const result = data.results[0].address_components;
+                    const info = [];
+                    for(let i = 0; i < result.length; ++i) {
+                        if (result[i].types[0] == "country") {
+                            info.push(result[i].long_name);
+                        }
+                        if (result[i].types[0] == "administrative_area_level_1") {
+                            info.push(result[i].short_name);
+                        }
+                        if (result[i].types[0] == "locality") {
+                            info.unshift(result[i].long_name);
+                        }
                     }
-                    if (result[i].types[0] == "administrative_area_level_1") {
-                        info.push(result[i].short_name);
-                    }
-                    if (result[i].types[0] == "locality") {
-                        info.unshift(result[i].long_name);
-                    }
+                    let locData: number[] = _.uniq(info);
+                    // if (locData.length === 3) {
+                    //     locData.pop(2);
+                    // }
+                    return locData.join(", ");
                 }
-                var locData = _.uniq(info);
-                // if (locData.length === 3) {
-                //     locData.pop(2);
-                // }
-                return locData.join(", ");
-            }
-            else {
-                throw new Error("Failed to geocode");
-            }
-        });
+                else {
+                    throw new Error("Failed to geocode");
+                }
+            });
     },
-    gecodeAddress: function (address) {
+    gecodeAddress(address) {
         return Q.when($.ajax({
             url: "https://maps.googleapis.com/maps/api/geocode/json",
             data: { "address": address, sensor: false },
@@ -439,8 +463,8 @@ var AppLocation = {
             }
         });
     },
-    current: function () {
-        var deferred = Q.defer();
+    current () {
+        const deferred = Q.defer();
         if (navigator.geolocation) {
             // if (false) {
             navigator.geolocation.getCurrentPosition(function (position) {
@@ -456,20 +480,20 @@ var AppLocation = {
         return deferred.promise;
     }
 };
-var Weather = {
+const Weather = {
     $el: {
         now: $('.now'),
         forecast: $('#weather li'),
         city: $('#city')
     },
-    urlBuilder: function (type, location, lang) {
-        var url = "http://api.wunderground.com/api/dc203fba39f6674e/" + type + "/";
+    urlBuilder (type, location, lang) {
+        let url = "http://api.wunderground.com/api/dc203fba39f6674e/" + type + "/";
         if (lang) {
             url = url + "lang:" + lang + "/";
         }
         return url + "q/" + location.lat + "," + location.lng + ".json";
     },
-    atAppLocation: function (location) {
+    atAppLocation (location) {
         return AppStorage.getOption("lang").then(function (lang) {
             return Q.when($.ajax({
                 url: Weather.urlBuilder("conditions/forecast/", location, lang),
@@ -477,20 +501,20 @@ var Weather = {
                 dataType: "json"
             }))
                 .then(function (data) {
-                return AppLocation.getDisplayName(location).then(function (name) {
-                    data.locationDisplayName = name;
-                    return data;
-                });
-            })
+                    return AppLocation.getDisplayName(location).then(function (name) {
+                        data.locationDisplayName = name;
+                        return data;
+                    });
+                })
                 .then(Weather.parse)
                 .then(AppStorage.cacheWeather);
         });
     },
-    parse: function (data) {
+    parse (data) {
         return AppStorage.getOption("unitType").then(function (unitType) {
-            var startUnitType = "f";
+            const startUnitType = "f";
             // Lets only keep what we need.
-            var w2 = {
+            const w2 = {
                 city: data.locationDisplayName,
                 weatherUrl: data.current_observation.forecast_url,
                 current: {
@@ -500,8 +524,8 @@ var Weather = {
                 },
                 forecast: []
             };
-            for (var i = Weather.$el.forecast.length - 1; i >= 0; i--) {
-                var df = data.forecast.simpleforecast.forecastday[i];
+            for (let i = Weather.$el.forecast.length - 1; i >= 0; i--) {
+                const df = data.forecast.simpleforecast.forecastday[i];
                 w2.forecast[i] = {
                     day: df.date.weekday,
                     condition: df.conditions,
@@ -513,9 +537,9 @@ var Weather = {
             return w2;
         });
     },
-    condition: function (url) {
-        var matcher = /\/(\w+).gif$/;
-        var code = matcher.exec(url).toString();
+    condition (url) {
+        const matcher = /\/(\w+).gif$/;
+        let code: string = matcher.exec(url).toString();
         if (code) {
             code = code[1];
         }
@@ -591,7 +615,7 @@ var Weather = {
                 return "T";
         }
     },
-    render: function (wd) {
+    render (wd) {
         // Set Current Information
         Weather.renderDay(Weather.$el.now, wd.current);
         Weather.$el.city.html(wd.city).show();
@@ -600,19 +624,19 @@ var Weather = {
         // Show Forecast
         AppStorage.getOption('animation').done(function (animation) {
             Weather.$el.forecast.each(function (i, el) {
-                var $el = $(el);
+                const $el = $(el);
                 if (animation) {
                     $el.css("-webkit-animation-delay", 150 * i + "ms").addClass('animated fadeInUp');
                 }
-                var dayWeather = wd.forecast[i];
+                const dayWeather = wd.forecast[i];
                 Weather.renderDay($el, dayWeather);
             });
         });
     },
-    link: function (data) {
+    link (data) {
         return data.weatherUrl + "?apiref=846edca2fe64735c";
     },
-    renderDay: function (el, data) {
+    renderDay (el, data) {
         el.attr("title", data.condition);
         el.find('.weather').html(data.conditionCode);
         if (!_.isUndefined(data.high) && !_.isUndefined(data.low)) {
@@ -626,7 +650,7 @@ var Weather = {
             el.find('.day').html(data.day);
         }
     },
-    tempConvert: function (temp, startType, endType) {
+    tempConvert (temp, startType, endType) {
         temp = Math.round(parseFloat(temp));
         if (startType === "f") {
             if (endType === 'c') {
@@ -645,27 +669,28 @@ var Weather = {
             }
         }
     },
-    load: function () {
+    load () {
         Loader.show();
         return AppStorage.getCachedWeather()
             .fail(function () {
-            // No Cache
-            return AppStorage.getOption("location")
-                .then(function (location) {
-                if (!_.isEmpty(location)) {
-                    return location;
-                }
-                else {
-                    var l = AppLocation.current();
-                    l.fail(ErrorHandler.noAppLocation);
-                    return l;
-                }
-            })
-                .then(Weather.atAppLocation);
-        });
+                // No Cache
+                return AppStorage.getOption("location")
+                    .then(function (location) {
+                        if (!_.isEmpty(location)) {
+                            return location;
+                        }
+                        else {
+                            const l = AppLocation.current();
+                            l.fail(ErrorHandler.noAppLocation);
+                            return l;
+                        }
+                    })
+                    .then(Weather.atAppLocation);
+            });
     }
 };
-var Clock = {
+
+const Clock = {
     $el: {
         digital: {
             time: $('#time'),
@@ -677,13 +702,13 @@ var Clock = {
             hour: $('#hourhand')
         }
     },
-    _parts: {},
+    _parts:{},
     _running: {},
     weekdays: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
     months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
-    timeParts: function (options) {
-        var date = new Date();
-        var hour = date.getHours();
+    timeParts (options) {
+        const date = new Date();
+        let hour = date.getHours();
         if (options.clock === 12) {
             if (hour > 12) {
                 hour = hour - 12;
@@ -706,21 +731,21 @@ var Clock = {
             hourAngle: ((date.getHours() % 12) + date.getMinutes() / 60) * 30
         };
     },
-    appendZero: function (num) {
+    appendZero (num) {
         if (num < 10) {
             return "0" + num;
         }
         return num;
     },
-    dateTemplate: function (parts) {
+    dateTemplate (parts) {
         return parts.day + ", " + parts.month + " " + parts.date;
     },
-    transformTemplate: function (angle) {
+    transformTemplate (angle) {
         return "rotate(" + angle + ",50,50)";
     },
-    refresh: function (options) {
-        var parts = Clock.timeParts(options);
-        var oldParts = Clock._parts || {};
+    refresh (options) {
+        const parts = Clock.timeParts(options);
+        const oldParts = Clock._parts || {};
         Clock.$el.digital.date.html(Clock.dateTemplate(parts));
         _.each(['hour', 'minute', 'second'], function (unit) {
             if (parts[unit] !== oldParts[unit]) {
@@ -730,12 +755,12 @@ var Clock = {
         });
         Clock._parts = parts;
     },
-    start: function (options) {
+    start (options) {
         if (Clock._running) {
             // clearInterval(Clock._running);
         }
         function tick() {
-            var delayTime = 500;
+            const delayTime = 500;
             Clock.refresh(options);
             Clock._running = setTimeout(function () {
                 window.requestAnimationFrame(tick);
@@ -748,7 +773,7 @@ function style() {
     AppStorage.getOptions().done(function (options) {
         // Kick off the clock
         Clock.start(options);
-        var $main = $('#main');
+        const $main = $('#main');
         // background Color
         if (!$main.hasClass(options.color)) {
             if ($main.is("[class*='-bg']")) {
@@ -779,7 +804,7 @@ function style() {
     });
 }
 function main() {
-    var loader = Weather.load().then(function (data) {
+    const loader = Weather.load().then(function (data) {
         Loader.hide();
         Weather.render(data);
     });
@@ -813,11 +838,11 @@ function main() {
 style();
 main();
 if (navigator.onLine) {
-    var ga = document.createElement('script');
+    const ga = document.createElement('script');
     ga.type = 'text/javascript';
     ga.async = true;
     ga.src = 'https://ssl.google-analytics.com/ga.js';
-    var s = document.getElementsByTagName('script')[0];
+    const s = document.getElementsByTagName('script')[0];
     s.parentNode.insertBefore(ga, s);
 }
 else {
@@ -835,7 +860,8 @@ $(".home").click(function () {
     chrome.tabs.update({ url: "chrome-internal://newtab/" });
     return false;
 });
-var settings = $('.settings');
+const settings = $('.settings');
+
 setTimeout(function () {
     settings.first().fadeIn(0); // Unhide first settings panel.
 }, 100);
@@ -858,38 +884,39 @@ function showOptions() {
 $(window).bind('hashchange', showOptions);
 showOptions();
 $('#options #list li').click(function () {
-    var $el = $(this);
+    const $el = $(this);
     // Update List
     $('#options #list li.active').removeClass('active');
     $el.addClass('active');
     // Load New Content
     $('.settings.show').fadeOut(0).removeClass('show');
-    var idx = $(this).index();
+    const idx = $(this).index();
     $(settings[idx]).fadeIn(100).addClass('show');
 });
 function switchPreviewBgColor(bgclass) {
-    var $li = $("#options #color-pick li");
-    var $preview = $("#preview");
+    const $li = $("#options #color-pick li");
+    const $preview = $("#preview");
     $li.removeClass("active");
     $li.filter("." + bgclass).addClass("active");
     $preview[0].className = $preview[0].className.replace(/\w*-bg/g, '');
     $preview.addClass(bgclass);
 }
 function switchPreviewTextColor(textclass) {
-    var $preview = $("#preview");
+    const $preview = $("#preview");
     $preview[0].className = $preview[0].className.replace(/\w*-text/g, '');
     $preview.addClass(textclass);
 }
 $("#options #color-pick li").click(function () {
-    var $li = $(this);
-    var className = $li[0].className.match(/\w*-bg/g)[0];
+    const $li = $(this);
+    const className = $li[0].className.match(/\w*-bg/g)[0];
     $("#options #color-pick input").val(className);
     switchPreviewBgColor(className);
 });
 $("input[name=textColor]").change(function () {
-    var $input = $(this);
+    const $input = $(this);
     switchPreviewTextColor($input.val());
 });
+
 function save(options) {
     AppStorage.clearWeather().then(function () {
         AppStorage.setOptions(options).then(function () {
@@ -904,8 +931,8 @@ function save(options) {
     });
 }
 $("#options form").submit(function () {
-    var $form = $(this);
-    var options;
+    const $form = $(this);
+    let options:Options;
     _.each($form.serializeArray(), function (inputs) {
         options[inputs.name] = inputs.value;
     });
@@ -924,7 +951,7 @@ $("#options form").submit(function () {
     }
     return false;
 });
-var OptionsView = {
+const OptionsView = {
     panel: {
         system: {
             unitType: $("input[name=unitType]"),
@@ -940,7 +967,7 @@ var OptionsView = {
             color: $("#color-pick input[type=hidden]")
         }
     },
-    set: function (options) {
+    set (options) {
         _.each(OptionsView.panel, function (elements, panel) {
             _.each(elements, function ($el, type) {
                 if ($el.is(":radio")) {
